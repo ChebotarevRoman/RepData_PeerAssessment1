@@ -35,20 +35,24 @@ head(activity)
 ## What is mean total number of steps taken per day?
 **Important**: *In this step we're ingoring missing values.*
 
-First we group data on date and look at distribution of total number of steps taken each day:
+First, we group data on date and look at distribution of total number of steps taken each day:
 
 ```r
 library(plyr)
 sum.day.steps <- ddply(activity, .(date), summarize, sum.steps=sum(steps))
 
 library(ggplot2)
-ggplot(sum.day.steps, aes(x=sum.steps)) + geom_histogram(binwidth=2500) +
-    labs(x="Steps per day", y = "Count", title = "Total number of steps taken each day")
+ggplot(sum.day.steps, aes(x=sum.steps)) + 
+    geom_histogram(binwidth=2500) +
+    labs(x="Steps per day", 
+         y = "Count", 
+         title = "Total number of steps taken each day")
 ```
 
 ![plot of chunk histogram](figure/histogram.png) 
 
-And calculate mean and median number of steps taken per day:
+And calculate mean and median number of steps taken per day (missing values are
+ignored):
 
 ```r
 mean(sum.day.steps$sum.steps, na.rm = TRUE)
@@ -70,9 +74,13 @@ median(sum.day.steps$sum.steps, na.rm = TRUE)
 To extract daily activity pattern, we can average number of steps in specific time interval across all days:
 
 ```r
-avg.day.steps <- ddply(activity, .(interval), summarize, avg.steps = mean(steps, na.rm=TRUE))
-ggplot(avg.day.steps, aes(x=interval, y=avg.steps)) + geom_line(size=0.5) +
-    labs(x="Time interval", y="Steps", title="Average number of steps (across all days)")
+avg.day.steps <- ddply(activity, .(interval), 
+                       summarize, avg.steps = mean(steps, na.rm=TRUE))
+ggplot(avg.day.steps, aes(x=interval, y=avg.steps)) + 
+    geom_line(size=0.5) +
+    labs(x="Time interval", 
+         y="Steps", 
+         title="Average number of steps (across all days)")
 ```
 
 ![plot of chunk activity_pattern](figure/activity_pattern.png) 
@@ -88,33 +96,55 @@ avg.day.steps[which.max(avg.day.steps$avg.steps), 1]
 ```
 
 
-Which related to 5-minute time interval started at **13:55**.
-
-## Imputing missing values
-Missing values apears in 'steps' column. Total number of missing values:
+Which related to 5-minute time interval started at:
 
 ```r
-sum(is.na(activity$steps))
+paste(floor(max.step.interval/100), (max.step.interval %% 100), sep=":")
 ```
 
 ```
-## [1] 2304
+## [1] "8:35"
 ```
 
-For imputing these missing values, all NA's are replacing with mean number of steps in that time interval (rounded to the nearest integer). Mean numbers of steps across all days were calculated in previous section.
+## Imputing missing values
+Identify which columns contain missing values:
 
-For this purpose we merge *acitivity* and *avg.day.steps*  datasets on 'interval' column and then substitute NA's with averaged and rounded numbers of steps in specific interval (now these values in the same row). At last we remove intermediary column, sort data by date and re-arrange columns to original order.
+```r
+colSums(is.na(activity))
+```
+
+```
+##    steps     date interval 
+##     2304        0        0
+```
+
+Missing values apears in 'steps' column. Total number is 2304.
+
+For imputing these missing values, all NAs are replacing with mean number of steps in that time interval (rounded to the nearest integer). Mean numbers of steps across all days were calculated in previous section.
+
+For this purpose we merge *acitivity* and *avg.day.steps*  datasets on 'interval' column and then substitute NAs with averaged and rounded numbers of steps in specific interval (now these values at the same row). At last we remove intermediary column, sort data by date and re-arrange columns to original order.
 
 ```r
 activity.tidy <- merge(activity, avg.day.steps, by="interval", all.x=TRUE)
+
 activity.tidy[is.na(activity.tidy$steps), 2] <- 
     round(activity.tidy[is.na(activity.tidy$steps), 4])
 
 activity.tidy <- activity.tidy[with(activity.tidy, order(date, interval)), ]
+
 activity.tidy <- subset(activity.tidy, select=c(steps, date, interval))
 ```
 
 Ensure that new dataset contains no missing values:
+
+```r
+colSums(is.na(activity))
+```
+
+```
+##    steps     date interval 
+##     2304        0        0
+```
 
 ```r
 summary(activity.tidy)
@@ -135,8 +165,11 @@ After imputing missing values we again look at distribution of total number of s
 ```r
 tidy.sum.day.steps <- ddply(activity.tidy, .(date), summarize, sum.steps=sum(steps))
 
-ggplot(tidy.sum.day.steps, aes(x=sum.steps)) + geom_histogram(binwidth=2500) +
-    labs(x="Steps per day", y = "Count", title = "Total number of steps taken each day")
+ggplot(tidy.sum.day.steps, aes(x=sum.steps)) +
+    geom_histogram(binwidth=2500) +
+    labs(x="Steps per day", 
+         y = "Count", 
+         title = "Total number of steps taken each day")
 ```
 
 ![plot of chunk histogram_no_na](figure/histogram_no_na.png) 
@@ -159,7 +192,7 @@ median(tidy.sum.day.steps$sum.steps)
 ## [1] 10762
 ```
 
-These values almost the same in case we ignore missing values at all. So for this particular dataset and this type of analysis it's not ver important to handle missing values.
+As expected these values almost the same as in the case ignoring missing values at all. This is because we replace NAs with average values in that time interval. So for this particular dataset and this type of analysis it's not very important to handle missing values.
 
 ## Are there differences in activity patterns between weekdays and weekends?
 
@@ -180,13 +213,21 @@ activity.tidy$day.type <- as.factor(sapply(activity.tidy$date, map.weekdays))
 And make a panel plot which allows to compare daily activity patterns across different types of days.
 
 ```r
-tidy.avg.day.steps <- ddply(activity.tidy, .(interval, day.type), summarize, avg.steps = mean(steps))
+tidy.avg.day.steps <- ddply(activity.tidy, .(interval, day.type), 
+                            summarize, avg.steps = mean(steps))
 
-ggplot(tidy.avg.day.steps, aes(x=interval, y=avg.steps)) + geom_line(size=0.5) +
+ggplot(tidy.avg.day.steps, aes(x=interval, y=avg.steps)) + 
+    geom_line(size=0.5) +
+    geom_smooth(method="loess", se=FALSE) +
     facet_grid(day.type ~ . ) +
-    labs(x="Time interval", y="Steps", title="Average number of steps")
+    labs(x="Time interval", 
+         y="Steps", 
+         title="Average number of steps")
 ```
 
 ![plot of chunk compare_plot](figure/compare_plot.png) 
 
-So we can see that during weekend human activity is less 'stable' and starts later.
+So we can see that during weekend human activity is (in comparison with weekday):
+- more jagged
+- higher afternoon and lower in a morning
+- begins later
