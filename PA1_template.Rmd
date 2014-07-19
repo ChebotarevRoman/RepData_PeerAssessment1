@@ -84,7 +84,7 @@ activity.tidy <- subset(activity.tidy, select=c(steps, date, interval))
 
 Ensure that new dataset contains no missing values:
 ```{r tidy_summary}
-colSums(is.na(activity))
+colSums(is.na(activity.tidy))
 summary(activity.tidy)
 ```
 

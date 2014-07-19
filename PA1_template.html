@@ -303,11 +303,11 @@ activity.tidy &lt;- subset(activity.tidy, select=c(steps, date, interval))
 
 <p>Ensure that new dataset contains no missing values:</p>
 
-<pre><code class="r">colSums(is.na(activity))
+<pre><code class="r">colSums(is.na(activity.tidy))
 </code></pre>
 
 <pre><code>##    steps     date interval 
-##     2304        0        0
+##        0        0        0
 </code></pre>
 
 <pre><code class="r">summary(activity.tidy)
